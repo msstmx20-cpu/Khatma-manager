@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تسجيل الدخول</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Cairo', sans-serif; 
+            background: #f0f2f5; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px;
+        }
+        .card { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08); 
+            width: 100%; 
+            max-width: 380px; 
+            text-align: center; 
+        }
+        h2 { color: #2c3e50; margin-top: 0; font-size: 22px; }
+        .group-badge { 
+            background: #eaf2f8; 
+            color: #2980b9; 
+            padding: 5px 15px; 
+            border-radius: 20px; 
+            font-size: 14px; 
+            display: inline-block; 
+            margin-bottom: 25px;
+        }
+        
+        .form-group { margin-bottom: 20px; text-align: right; }
+        label { display: block; margin-bottom: 8px; color: #555; font-weight: 600; font-size: 14px; }
+        
+        input { 
+            width: 100%; 
+            padding: 15px; 
+            border: 2px solid #eee; 
+            border-radius: 12px; 
+            font-family: 'Cairo'; 
+            font-size: 18px; 
+            transition: 0.3s;
+            background: #fafafa;
+        }
+        input:focus { border-color: #3498db; background: white; outline: none; }
+        
+        button { 
+            width: 100%; 
+            padding: 16px; 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 18px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-family: 'Cairo'; 
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+        }
+        button:active { transform: scale(0.98); background: #2980b9; }
+        
+        .error { color: #e74c3c; font-size: 14px; margin-top: 15px; min-height: 20px; }
+        .back-link { display: block; margin-top: 25px; color: #95a5a6; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="group-badge">{{ group_name }}</div>
+        <h2>تسجيل الدخول</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label>الرقم التعريفي (5 أرقام)</label>
+                <!-- type="tel" triggers the number pad on mobile -->
+                <input type="tel" id="uid" placeholder="مثال: 24085" maxlength="5" inputmode="numeric" pattern="\d*" required>
+            </div>
+            <div class="form-group">
+                <label>الاسم</label>
+                <input type="text" id="uname" placeholder="الاسم " required autocomplete="name">
+            </div>
+            <button type="submit">دخول</button>
+        </form>
+        <div id="errorMsg" class="error"></div>
+        <a href="/" class="back-link">تغيير المجموعة</a>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const uid = document.getElementById('uid').value;
+            const uname = document.getElementById('uname').value;
+            const errorDiv = document.getElementById('errorMsg');
+            const btn = document.querySelector('button');
+            
+            if (uid.length !== 5) {
+                errorDiv.innerText = "الرقم التعريفي يجب أن يكون 5 أرقام!";
+                return;
+            }
+
+            btn.innerHTML = "جاري التحميل...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/auth', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ group: "{{ group_name }}", id: uid, name: uname })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    window.location.href = `/mission?group={{ group_name }}&uid=${uid}`;
+                } else {
+                    errorDiv.innerText = data.error;
+                    btn.innerHTML = "دخول";
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                btn.innerHTML = "دخول";
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
