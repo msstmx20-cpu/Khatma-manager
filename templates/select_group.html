@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>اختر المجموعة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: 'Cairo', sans-serif; 
+            background: #f0f2f5; 
+            margin: 0; 
+            padding: 20px;
+            min-height: 100vh;
+            display: flex; 
+            flex-direction: column;
+        }
+        
+        .container { width: 100%; max-width: 500px; margin: 0 auto; }
+        h1 { color: #2c3e50; margin-bottom: 25px; font-size: 24px; text-align: center; }
+        
+        /* Group List Style */
+        .group-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; }
+        .btn-group { 
+            background: white; 
+            color: #2c3e50; 
+            padding: 18px; 
+            border-radius: 12px; 
+            text-decoration: none; 
+            border: 1px solid #e1e4e8;
+            font-weight: 600;
+            font-size: 18px;
+            display: flex; 
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        .btn-group:active { transform: scale(0.98); background: #f8f9fa; }
+        .btn-group::after { content: '←'; font-size: 20px; color: #3498db; }
+
+        /* Create Form Style */
+        .create-box { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h3 { margin-top: 0; color: #7f8c8d; font-size: 16px; margin-bottom: 15px; }
+        
+        .input-group { display: flex; gap: 10px; }
+        input[type="text"] { 
+            flex: 1; 
+            padding: 14px; 
+            border: 2px solid #ddd; 
+            border-radius: 10px; 
+            font-family: 'Cairo'; 
+            font-size: 16px;
+            outline: none;
+        }
+        input[type="text"]:focus { border-color: #3498db; }
+        
+        button { 
+            flex: 0 0 80px; 
+            padding: 14px; 
+            background: #27ae60; 
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            font-family: 'Cairo'; 
+            font-size: 16px; 
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:active { background: #219150; }
+
+        .empty-msg { text-align: center; color: #95a5a6; padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>المجموعات</h1>
+        
+        <div class="group-list">
+            {% if groups %}
+                {% for group in groups %}
+                <a href="/?group={{ group }}" class="btn-group">{{ group }}</a>
+                {% endfor %}
+            {% else %}
+                <div class="empty-msg">لا توجد مجموعات نشطة حالياً</div>
+            {% endif %}
+        </div>
+
+        <div class="create-box">
+            <h3>إنشاء مجموعة جديدة</h3>
+            <form action="/" method="GET" class="input-group">
+                <input type="text" name="group" placeholder="اكتب اسم المجموعة..." autocomplete="off" required>
+                <button type="submit">دخول</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
