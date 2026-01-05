@@ -11,7 +11,7 @@ def load_data():
             return json.load(f)
     return {
         "groups": {},
-        "users": {}  # Format: {"24085": {"name": "Ahmed", "history": {"GroupA": [1, 5]}}}
+        "users": {}  # "24085": {"name": "Ahmed", "history": {"GroupA": [1, 5]}}
     }
 
 def save_data(data):
@@ -22,7 +22,8 @@ def get_group_data(data, group_name):
     if group_name not in data['groups']:
         data['groups'][group_name] = {
             "nombre_mission": 0,
-            "tasks": {str(i): {"done": False, "user": ""} for i in range(1, 31)}
+            # Status: 0=Available, 1=Reserved, 2=Done
+            "tasks": {str(i): {"status": 0, "user_id": "", "user_name": ""} for i in range(1, 31)}
         }
         save_data(data)
     return data['groups'][group_name]
@@ -32,12 +33,9 @@ def get_group_data(data, group_name):
 @app.route('/')
 def index():
     group_name = request.args.get('group')
-    
     if group_name:
-        # If group selected, go to Login page
         return redirect(url_for('login', group=group_name))
     else:
-        # Show list of groups
         data = load_data()
         groups_list = list(data['groups'].keys())
         return render_template('select_group.html', groups=groups_list)
@@ -58,54 +56,41 @@ def mission():
         return redirect(url_for('index'))
         
     data = load_data()
-    
-    # Verify User exists (in case of direct link)
     if user_id not in data['users']:
         return redirect(url_for('login', group=group_name))
     
     group_data = get_group_data(data, group_name)
     user_data = data['users'][user_id]
     
-    # Get tasks this user has done in THIS specific group
-    my_tasks_in_group = user_data['history'].get(group_name, [])
+    # Get user's specific history count
+    my_tasks_count = len(user_data['history'].get(group_name, []))
     
     return render_template('mission.html', 
                            group_name=group_name, 
                            uid=user_id, 
                            my_name=user_data['name'],
-                           my_tasks=my_tasks_in_group,
+                           my_tasks_count=my_tasks_count,
                            data=group_data)
 
 @app.route('/auth', methods=['POST'])
 def auth():
-    """Login Logic"""
     req = request.json
     group_name = req.get('group')
     user_id = req.get('id')
     user_name = req.get('name').strip()
     
-    # Validation: ID must be 5 digits
     if len(user_id) != 5 or not user_id.isdigit():
         return jsonify({"error": "الرقم التعريفي يجب أن يكون 5 أرقام"}), 400
-        
     if not user_name:
         return jsonify({"error": "الرجاء إدخال الاسم"}), 400
 
     data = load_data()
-    
-    # If new user, save. If existing user, update name (optional) or keep old.
     if user_id not in data['users']:
-        data['users'][user_id] = {
-            "name": user_name,
-            "history": {}
-        }
+        data['users'][user_id] = {"name": user_name, "history": {}}
     else:
-        # Optional: Update name if they enter a different one
         data['users'][user_id]['name'] = user_name
         
-    # Ensure group exists
     get_group_data(data, group_name)
-    
     save_data(data)
     return jsonify({"success": True, "uid": user_id})
 
@@ -123,42 +108,64 @@ def update_task():
 
     group_data = get_group_data(data, group_name)
     task_str = str(task_id)
+    task = group_data['tasks'][task_str]
     
-    if task_str in group_data['tasks']:
-        if group_data['tasks'][task_str]['done']:
-            return jsonify({"error": "تم اختيار هذا الجزء بالفعل!"}), 400
-        
-        # 1. Update Task
-        group_data['tasks'][task_str]['done'] = True
-        group_data['tasks'][task_str]['user'] = user_id
-        
-        # 2. Update User History
+    # SECURITY: Can I touch this task?
+    if task['status'] != 0 and task['user_id'] != user_id:
+        return jsonify({"error": "هذه المهمة لشخص آخر!"}), 400
+
+    # LOGIC: Cycle Status (0 -> 1 -> 2 -> 0)
+    new_status = 0
+    user_name = data['users'][user_id]['name']
+    
+    if task['status'] == 0:
+        # Reserve it
+        new_status = 1 
+    elif task['status'] == 1:
+        # Mark as Done
+        new_status = 2
+        # Add to history
         if group_name not in data['users'][user_id]['history']:
             data['users'][user_id]['history'][group_name] = []
-        data['users'][user_id]['history'][group_name].append(int(task_id))
+        if task_id not in data['users'][user_id]['history'][group_name]:
+             data['users'][user_id]['history'][group_name].append(int(task_id))
+    elif task['status'] == 2:
+        # Cancel (Release)
+        new_status = 0
+        # Remove from history
+        if group_name in data['users'][user_id]['history']:
+             if int(task_id) in data['users'][user_id]['history'][group_name]:
+                 data['users'][user_id]['history'][group_name].remove(int(task_id))
+
+    # Update Task
+    task['status'] = new_status
+    
+    if new_status > 0:
+        task['user_id'] = user_id
+        task['user_name'] = user_name
+    else:
+        task['user_id'] = ""
+        task['user_name'] = ""
+
+    # Check Group Completion (Only if all are 2)
+    all_done = all(t['status'] == 2 for t in group_data['tasks'].values())
+    reset_message = ""
+    
+    if all_done:
+        group_data['nombre_mission'] += 1
+        # Reset tasks
+        for k in group_data['tasks']:
+            group_data['tasks'][k] = {"status": 0, "user_id": "", "user_name": ""}
+        reset_message = "اكتملت المهمة! تم زيادة العداد."
+    
+    save_data(data)
         
-        # 3. Check Group Completion
-        all_done = all(t['done'] for t in group_data['tasks'].values())
-        reset_message = ""
-        
-        if all_done:
-            group_data['nombre_mission'] += 1
-            # Reset tasks
-            for k in group_data['tasks']:
-                group_data['tasks'][k] = {"done": False, "user": ""}
-            reset_message = "اكتملت الختمه! تم زيادة العداد."
-        
-        data['groups'][group_name] = group_data
-        save_data(data)
-            
-        return jsonify({
-            "success": True, 
-            "nombre_mission": group_data['nombre_mission'], 
-            "tasks": group_data['tasks'],
-            "reset_message": reset_message
-        })
-        
-    return jsonify({"error": "رقم الجزء غير صالح"}), 400
+    return jsonify({
+        "success": True, 
+        "nombre_mission": group_data['nombre_mission'], 
+        "tasks": group_data['tasks'],
+        "reset_message": reset_message
+    })
 
 @app.route('/get_status')
 def get_status():
@@ -169,4 +176,5 @@ def get_status():
     return jsonify(get_group_data(data, group_name))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
