@@ -15,7 +15,6 @@
             padding-bottom: 40px;
         }
 
-        /* Sticky Header */
         .top-bar { 
             background: white; 
             padding: 15px 20px; 
@@ -66,23 +65,21 @@
             text-decoration: none;
         }
 
-        /* Grid Layout */
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 3 columns on mobile */
+            grid-template-columns: repeat(3, 1fr);
             gap: 12px;
             padding: 15px;
             max-width: 600px;
             margin: 0 auto;
         }
         
-        /* Task Card Design */
         .task-card {
             background: white;
             border: 2px solid transparent;
             border-radius: 12px;
             padding: 0;
-            aspect-ratio: 1/1; /* Square cards */
+            aspect-ratio: 1/1;
             display: flex; 
             flex-direction: column; 
             justify-content: center; 
@@ -93,23 +90,25 @@
             transition: 0.2s;
         }
 
-        /* Available State */
+        /* 1. Available */
         .available { border: 2px solid #dfe6e9; background: white; color: #2c3e50; }
         .available:active { transform: scale(0.95); background: #f1f1f1; }
         
-        /* Done by Others (Red) */
-        .done-others { background: #fadbd8; border-color: #e74c3c; opacity: 0.7; cursor: default; }
-        .done-others h3 { color: #c0392b; font-size: 40px; margin: 0; line-height: 1; }
-        .done-others p { font-size: 12px; margin: 5px 0 0 0; }
-
-        /* Done by ME (Blue) */
-        .done-me { background: #ebf5fb; border-color: #3498db; }
-        .done-me h3 { color: #2980b9; font-size: 40px; margin: 0; line-height: 1; }
-        .check-icon { position: absolute; top: 5px; right: 5px; color: #3498db; font-size: 12px; }
-
-        h3 { font-size: 32px; margin: 0; font-weight: 700; color: #2c3e50; }
+        /* 2. Reserved (Yellow) */
+        .reserved { background: #fcf3cf; border-color: #f1c40f; }
+        .reserved h3 { color: #f39c12; }
         
-        /* Status Message */
+        /* 3. Completed (Green) */
+        .completed { background: #e8f8f5; border-color: #27ae60; }
+        .completed h3 { color: #27ae60; }
+
+        /* Others' Task (Red) */
+        .others { background: #fadbd8; border-color: #e74c3c; opacity: 0.7; cursor: not-allowed; }
+        .others h3 { color: #c0392b; font-size: 40px; margin: 0; line-height: 1; }
+        .others p { font-size: 12px; margin: 5px 0 0 0; }
+
+        h3 { font-size: 32px; margin: 0; font-weight: 700; }
+        
         #message { 
             text-align: center; 
             padding: 10px; 
@@ -119,8 +118,8 @@
             min-height: 20px;
         }
 
-        /* Icon inside card */
-        .icon { font-size: 14px; margin-top: 5px; color: #95a5a6; }
+        .icon { font-size: 14px; margin-top: 5px; color: #7f8c8d; }
+        .check-icon { position: absolute; top: 5px; right: 5px; font-size: 14px; }
 
     </style>
 </head>
@@ -136,7 +135,7 @@
         </div>
         <div class="user-stats">
             <span class="user-name">{{ my_name }}</span>
-            <div class="score-badge">مهامي: {{ my_tasks|length }}</div>
+            <div class="score-badge">مهامي: {{ my_tasks_count }}</div>
         </div>
     </div>
 
@@ -144,10 +143,9 @@
     <div id="message"></div>
 
     <script>
-        // Using tojson ensures special characters (quotes) don't break the script
         const currentGroup = {{ group_name | tojson }};
         const currentUid = {{ uid | tojson }};
-        let myTasks = {{ my_tasks | tojson }};
+        const myName = {{ my_name | tojson }};
         let currentData = {{ data | tojson }};
 
         function renderTasks() {
@@ -159,25 +157,48 @@
                 const card = document.createElement('div');
                 card.className = 'task-card';
                 
-                if (task.done) {
-                    if (task.user === currentUid) {
-                        // My Task (Blue)
-                        card.classList.add('done-me');
-                        card.innerHTML = `
-                            <div class="check-icon">✓</div>
-                            <h3>${i}</h3>
-                            <div class="icon">أنا</div>
-                        `;
-                    } else {
-                        // Others' Task (Red)
-                        card.classList.add('done-others');
-                        card.innerHTML = `<h3>${i}</h3><div class="icon">محجوز</div>`;
-                    }
-                } else {
-                    // Available (White)
+                // Status 0 = Available
+                if (task.status === 0) {
                     card.classList.add('available');
                     card.innerHTML = `<h3>${i}</h3>`;
                     card.onclick = () => pickTask(i);
+                } 
+                // Status 1 or 2: Task is taken
+                else {
+                    // Is it MY task?
+                    if (task.user_id === currentUid) {
+                        // Status 1 = Reserved (Yellow)
+                        if (task.status === 1) {
+                            card.classList.add('reserved');
+                            card.innerHTML = `
+                                <div class="check-icon" style="color:#f39c12">!</div>
+                                <h3>${i}</h3>
+                                <div class="icon" style="color:#f39c12">${myName}</div>
+                                <div class="icon" style="font-size:10px">محجوز</div>
+                            `;
+                            card.onclick = () => pickTask(i);
+                        } 
+                        // Status 2 = Completed (Green)
+                        else if (task.status === 2) {
+                            card.classList.add('completed');
+                            card.innerHTML = `
+                                <div class="check-icon">✓</div>
+                                <h3>${i}</h3>
+                                <div class="icon" style="color:#27ae60">${myName}</div>
+                                <div class="icon" style="font-size:10px">تم</div>
+                            `;
+                            card.onclick = () => pickTask(i);
+                        }
+                    } 
+                    // Is it SOMEONE ELSE's task? (Red)
+                    else {
+                        card.classList.add('others');
+                        card.innerHTML = `
+                            <h3>${i}</h3>
+                            <div class="icon">${task.user_name}</div>
+                            <div class="icon">محجوز</div>
+                        `;
+                    }
                 }
                 
                 grid.appendChild(card);
@@ -185,8 +206,7 @@
         }
 
         async function pickTask(taskId) {
-            // Haptic feedback (vibrate) on mobile if supported
-            if (navigator.vibrate) navigator.vibrate(50);
+            if (navigator.vibrate) navigator.vibrate(30);
 
             try {
                 const res = await fetch('/update_task', {
@@ -198,8 +218,15 @@
                 const result = await res.json();
                 if (result.success) {
                     currentData = result;
-                    myTasks.push(taskId);
-                    document.querySelector('.score-badge').innerText = `مهامي: ${myTasks.length}`;
+                    
+                    // Recalculate local score (simple count of done tasks in this group)
+                    let count = 0;
+                    for(let k in currentData.tasks) {
+                        if(currentData.tasks[k].user_id === currentUid && currentData.tasks[k].status === 2) {
+                            count++;
+                        }
+                    }
+                    document.querySelector('.score-badge').innerText = `مهامي: ${count}`;
                     
                     renderTasks();
                     
@@ -216,11 +243,12 @@
 
         renderTasks();
 
-        // Refresh every 4 seconds
         setInterval(async () => {
             try {
                 const res = await fetch(`/get_status?group=${encodeURIComponent(currentGroup)}`);
-                currentData = await res.json();
+                const newData = await res.json();
+                // Only update data to keep our score logic simple for now
+                currentData = newData; 
                 renderTasks();
             } catch(e) {}
         }, 4000);
